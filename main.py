@@ -294,20 +294,12 @@ def get_bond_polarity_vectors(molecule):
 
 
     i = 0
-
     for atom in surrounding_atoms:
-        # if i >= len(surrounding_atoms):
-        #     break
         j = 0
         while j < surrounding_atoms[atom]["number"]:
-            # if surrounding_atoms[atom]["electronegativity"] > main_group_elements[central_atom]["electronegativity"]:
-            #     bond_polarity_vectors.append(normalized_vectors[j+i] * (surrounding_atoms[atom]["electronegativity"] - main_group_elements[central_atom]["electronegativity"]))
-            # else:
-            #     bond_polarity_vectors.append(normalized_vectors[j+i] * (main_group_elements[central_atom]["electronegativity"] -  surrounding_atoms[atom]["electronegativity"]))
             bond_polarity_vectors.append(normalized_vectors[j+i] * abs(surrounding_atoms[atom]["electronegativity"]-main_group_elements[central_atom]["electronegativity"]))
             j += 1
         i += j
-
     return bond_polarity_vectors
 
 
@@ -328,17 +320,16 @@ polarity = ""
 
 molecule = input("Molecule: ")
 
+central_atom, surrounding_atoms = get_central_atom_and_surrounding_atoms(molecule)
+
+
 molecular_geometry, bond_angles, _ = predict_geometry(molecule)
 
-print(f"The molecular geometry of {molecule} is {molecular_geometry} and the bond angles are approx. {bond_angles}")
-
-#bond_polarity_vectors = get_bond_polarity_vectors(molecule)
 
 vectors = get_vectors(molecule)
 
 molecular_polarity_vector = get_molecular_polarity_vector(molecule)
 
-print(molecular_polarity_vector)
 
 threshold = 1e-3
 
@@ -348,7 +339,6 @@ else:
     polarity = "Polar"
 
 
-print(f"{molecule} is {polarity}")
 
 
 fig = plt.figure()
@@ -357,18 +347,48 @@ ax = fig.add_subplot(111, projection = '3d')
 for i in vectors:
     ax.quiver(0, 0, 0, i[0], i[1], i[2], color='b', arrow_length_ratio=0.1)
 
-#ax.quiver(-1, 0, 0, molecular_polarity_vector[0], molecular_polarity_vector[1], molecular_polarity_vector[2])
+
+
+if polarity == "Polar":
+
+    bond_dipole_pointing_out = False
+    for atom in surrounding_atoms:
+        if central_atom == "C" and main_group_elements[central_atom]["electronegativity"] < surrounding_atoms[atom]["electronegativity"]:
+            ax.quiver(-1.5, 0, molecular_polarity_vector[2], molecular_polarity_vector[0], molecular_polarity_vector[1], molecular_polarity_vector[2])
+            ax.text(-2, 0, 0.1, "net dipole", zdir=molecular_polarity_vector)
+            bond_dipole_pointing_out = True
+            break
+    if bond_dipole_pointing_out == False:
+        ax.quiver(-1.5, 0, molecular_polarity_vector[2], -molecular_polarity_vector[0], -molecular_polarity_vector[1], -molecular_polarity_vector[2])
+        ax.text(-2, 0, 0.1, "net dipole", zdir=molecular_polarity_vector)
+
+
+
+
+ax.text(-0.09,0,-0.25, central_atom)
+
+
+
+i = 0
+
+for atom in surrounding_atoms:
+    j = 0
+    while j < surrounding_atoms[atom]["number"]:
+        ax.text(vectors[i][0], vectors[i][1], vectors[i][2]+0.1, atom)
+        j += 1
+        i += 1
+    
 
 # Set the axis limits for a clear view
-ax.set_xlim([-1.5, 1.5])
-ax.set_ylim([-1.5, 1.5])
-ax.set_zlim([-1.5, 1.5])
+ax.set_xlim([-2, 2])
+ax.set_ylim([-2, 2])
+ax.set_zlim([-2, 2])
 ax.set_xlabel('X Axis')
 ax.set_ylabel('Y Axis')
 ax.set_zlabel('Z Axis')
 
 # Display the plot
-plt.title('Molecular Geometry and Polarity Analyzer')
+plt.title(f'{molecule}: {molecular_geometry}, {polarity}')
 plt.show()
 
 
