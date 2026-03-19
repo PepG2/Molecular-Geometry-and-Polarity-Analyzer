@@ -2,6 +2,7 @@ Molecular Geometry and Polarity Analyzer By Ethan Chen
 
 
 
+
   Molecular geometry and polarity determine many properties in molecules such as melting points, boiling points, crystal shape, solubility, intermolecular forces, and alignment in electrical fields. Traditional polarity predictions are based on qualitative symmetry reasoning and may not work well for more complex molecules. This project aims to tackle this problem through a quantitative stance, it predicts and draws molecular geometries with the use of vectors allowing for calculations of molecular polarities through geometry and bond properties.
 
   VSEPR theory shows how electrons arrange themselves in bonds and lone pairs in order to stay as far away from other electrons as possible. Using this we were able to define a 
