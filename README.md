@@ -1,6 +1,4 @@
-Molecular Geometry and Polarity Analyzer 
-
-By Ethan Chen
+Molecular Geometry and Polarity Analyzer By Ethan Chen
 
 
 
