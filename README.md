@@ -1,5 +1,5 @@
 Molecular Geometry and Polarity Analyzer 
-Ethan Chen
+By Ethan Chen
 
 Molecular geometry and polarity determine many properties in molecules such as 
 melting points, boiling points, crystal shape, solubility, intermolecular forces, 
