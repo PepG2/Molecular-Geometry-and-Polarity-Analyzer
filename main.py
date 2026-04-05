@@ -81,32 +81,6 @@ main_group_elements = {
 
 
 
-
-
-# AXE notation A reperesents central atom, X represents atoms bonded to A, and E represents lone pairs
-vsepr_table = {
-    # linear
-    "AX2E0" : {"Electron Pair Geometry" : "Linear", "Bond Angle" : 180},
-
-    # Trigonal planar
-    "AX3E0" : {"Electron Pair Geometry" : "Trigonal Planar", "Bond Angle" : 120},
-    "AX2E1" : {"Electron Pair Geometry" : "Bent", "Bond Angle" : 119},
-
-    # Tetrahedral 
-    "AX4E0" : {"Electron Pair Geometry" : "Tetrahedral", "Bond Angle" : 109.5},
-    "AX3E1" : {"Electron Pair Geometry" : "Trigonal pyramidial", "Bond Angle" : 107.3},
-    "AX2E2" : {"Electron Pair Geometry" : "Bent", "Bond Angle" : 104.5},
-
-    
-}
-
-
-
-
-
-
-
-
 def get_electrons_and_elements(molecule):
 
     electrons = 0
@@ -214,12 +188,7 @@ def get_bonded_atoms_and_lone_pairs(molecule):
     return bonded_atoms, lone_pairs
 
 
-# predicts the geometry using vsepr theory
 
-def predict_geometry(molecule):
-    bonded_atoms, lone_pairs = get_bonded_atoms_and_lone_pairs(molecule)
-    key = f"AX{bonded_atoms}E{lone_pairs}"
-    return vsepr_table[key]["Electron Pair Geometry"], vsepr_table[key]["Bond Angle"], key
 
 
 # normalizes the vector making the magnitude 1
@@ -236,7 +205,16 @@ def get_repulsion_energy(vectors):
             dist = np.linalg.norm(r)
             if dist < eps:
                 continue
-            repulsion_energy += 1/dist
+
+            if vectors[i]["type"] == "bp" and vectors[j]["type"] == "bp":
+                weight = 1
+            elif vectors[i]["type"] == "lp" and vectors[j]["type"] == "lp":
+                weight = 1.5376
+            else:
+                weight = 1.24
+
+            
+            repulsion_energy += weight/dist
 
     return repulsion_energy
 
@@ -253,8 +231,15 @@ def get_force_direction(vectors, index):
         dist = np.linalg.norm(r)
         if dist < eps:
             continue
+        
+        if vectors[index]["type"] == "bp" and vectors[j]["type"] == "bp":
+            weight = 1
+        elif vectors[index]["type"] == "lp" and vectors[j]["type"] == "lp":
+            weight = 1.5376
+        else:
+            weight = 1.24
 
-        force_direction = force_direction + (r / (dist ** 3))
+        force_direction = force_direction + weight*(r / (dist ** 3))
 
     return force_direction
 
@@ -268,14 +253,19 @@ def minimize_repulsion(molecule):
     iterations = 0
 
     i=0
+
     while i < electron_domains:
         v = np.random.normal(0, 1, 3)
         v = normalize(v)
+
+
+
         if i < bonded_atoms:
-            vectors[i] = {"type": "bond", "vector" : v}
+            vectors[i] = {"type": "bp", "vector" : v}
         else:
-            vectors[i] = {"type": "lone pair", "vector" : v}
+            vectors[i] = {"type": "lp", "vector" : v}
         i += 1
+
 
     E = get_repulsion_energy(vectors)
     while True:
@@ -305,145 +295,14 @@ def minimize_repulsion(molecule):
     return vectors
 
 
-    
-
-
-
-
-
-
-
-# Using spherical coordinates to find vectors. Theta: angle from z axis, Azimuthal: 2D plane. Determining the azimuthal angles and theta angles and then using :
-# x = sin theta cos azimuthal
-# y = sin theta sin azimuthal
-# z = cos theta
-
-
-
-
-
-
-
-
-
-
-
-# for synthetic molecules with vectors that only need one theta we can just use:
-# azimuthal i = 2pi i / N
-# i is which bond and n is number of bonds
-
-def get_azimuthals(molecule):
-    bonds, _ = get_bonded_atoms_and_lone_pairs(molecule)
-    azimuthals = []
-
-    i = 0
-    if bonds == 1 or bonds == 2 or bonds == 3:
-        while i < bonds:
-            azimuthals.append((2*np.pi*i)/bonds)
-            i += 1
-
-
-
-
-    return azimuthals
-
-
-# for synthetic molecules with 2 and 3 bonds I developed formulas for finding theta using the bond angle:
-# Derived these formulas from cos bond angle = V1 dot product V2
-# 2 bonds ex AX2E2:
-
-# azimuthal angles for 2 bond synthetic molecules would be 0 and 180 (read above for formula)
-
-# V1 = sin theta cos 0, sin theta sin 0, cos theta 
-#    = sin theta, 0, cos theta
-
-# V2 = sin theta cos 180, sin theta sin 180, cos theta
-#    = -sin theta, 0, cos theta
-
-# cos bond angle = V1 dot product V2
-# cos bond angle = -sin theta sin theta + cos theta cos theta
-# cos bond angle = -sin theta ^ 2 + cos theta ^ 2
-# trig identity : cos theta ^ 2 - sin theta ^ 2 = cos 2 theta
-# cos bond angle = cos 2 theta
-# bond angle = 2 theta
-# theta = bond angle / 2
-
-# 3 bonds ex AX3E1:
-
-# azimuthal angles for 3 bond synthetic molecules would be 0, 120, and 180 ( read above for formula)
-
-# V1 = sin theta cos 0, sin theta sin 0, cos theta 
-#    = sin theta, 0, cos theta
-
-# V2 = sin theta cos 120, sin theta sin 120, cos theta
-#    = -1/2 sin theta, root 3/2 sin theta, cos theta
-
-# cos bond angle = V1 dot product V2
-# cos bond angle = -1/2 sin theta ^ 2 + cos theta ^ 2
-# trig identity = cos theta ^ 2  = 1 - sin theta ^ 2
-# cos bond angle = -1/2 sin theta ^ 2 + 1 - sin theta ^ 2
-# cos bond angle = 1 - 3/2 sin theta ^ 2
-# theta = arcsin(root(-2/3(bond angle + 1)))
-
-def get_thetas(molecule):
-    bonds, _ = get_bonded_atoms_and_lone_pairs(molecule)
-    _, _, key = predict_geometry(molecule)
-    bond_angle = (vsepr_table[key]["Bond Angle"]/180) * np.pi
-    theta = []
-
-    if bonds == 2:
-        theta.append(bond_angle/2)
-
-    elif bonds == 3:
-        theta.append(np.arcsin(np.sqrt(-2/3*(np.cos(bond_angle)-1))))
-
-
-
-
-
-    return theta
-
-
-
-
-# x = sin theta cos azimuthal
-# y = sin theta sin azimuthal
-# z = cos theta
-# uses values from formulas above or hard coded values
-
-def get_vectors(molecule):
-    azimuthals = get_azimuthals(molecule)
-    theta = get_thetas(molecule)
-    bonds, _ = get_bonded_atoms_and_lone_pairs(molecule)
-    vectors = []
-    if bonds == 1 or bonds == 2 or bonds == 3:
-        for i in azimuthals:
-            vectors.append(np.array([np.sin(theta[0])*np.cos(i), np.sin(theta[0])*np.sin(i), np.cos(theta[0])]))
-    elif bonds == 4:
-        vectors.append(np.array([0, 0, 1]))
-        vectors.append(np.array([np.sin((109.5/180)*np.pi)*np.cos(0), np.sin((109.5/180)*np.pi)*np.sin(0), np.cos((109.5/180)*np.pi)]))
-        vectors.append(np.array([np.sin((109.5/180)*np.pi)*np.cos((120/180)*np.pi), np.sin((109.5/180)*np.pi)*np.sin((120/180)*np.pi), np.cos((109.5/180)*np.pi)]))
-        vectors.append(np.array([np.sin((109.5/180)*np.pi)*np.cos((240/180)*np.pi), np.sin((109.5/180)*np.pi)*np.sin((240/180)*np.pi), np.cos((109.5/180)*np.pi)]))
-
-
-
-
-    
-
-    return vectors
-
 
 # Finds the magnitude of the bond vectors by subtracting the electronegativities and multiplies the normalized calculated vectors
 
-def get_bond_polarity_vectors(molecule):
+def get_bond_dipoles(vectors):
     central_atom, surrounding_atoms = get_central_atom_and_surrounding_atoms(molecule)
-    _, _, key = predict_geometry(molecule)
-    directional_vectors = get_vectors(molecule)
-    normalized_vectors = []
-    bond_polarity_vectors = []
+    bond_dipoles = []
 
-    for i in directional_vectors:
-        normalized_vectors.append(normalize(i))
+
 
 
 
@@ -451,28 +310,29 @@ def get_bond_polarity_vectors(molecule):
     for atom in surrounding_atoms:
         j = 0
         while j < surrounding_atoms[atom]["number"]:
-            bond_polarity_vectors.append(normalized_vectors[j+i] * abs(surrounding_atoms[atom]["electronegativity"]-main_group_elements[central_atom]["electronegativity"]))
-            j += 1
+            if vectors[i+j]["type"] == "bp":
+                vector = normalize(vectors[i+j]["vector"])
+                bond_dipoles.append(vector * abs(surrounding_atoms[atom]["electronegativity"]-main_group_elements[central_atom]["electronegativity"]))
+                j += 1
         i += j
-    return bond_polarity_vectors
+    return bond_dipoles
 
 
 
 # adds up the bond vectors to determine the molecule vector
 
-def get_molecular_polarity_vector(vectors: list):
-    molecular_polarity_vector = np.array([0.0, 0.0, 0.0])
-    for i in vectors:
-        if vectors[i]["type"] == "bond":
-            molecular_polarity_vector += vectors[i]["vector"]
+def get_molecular_dipole(bond_dipoles: list):
+    molecular_dipole = np.array([0.0, 0.0, 0.0])
+    for i in bond_dipoles:
+        molecular_dipole += i
         
 
-    return molecular_polarity_vector
+    return molecular_dipole
 
 def draw_molecule(vectors):
     central_atom, surrounding_atoms = get_central_atom_and_surrounding_atoms(molecule)
     for i in vectors:
-        if vectors[i]["type"] == "bond":
+        if vectors[i]["type"] == "bp":
             ax.quiver(0, 0, 0, vectors[i]["vector"][0], vectors[i]["vector"][1], vectors[i]["vector"][2], color='b', arrow_length_ratio=0.1)
 
     ax.text(-0.09,0,-0.25, central_atom)
@@ -482,15 +342,14 @@ def draw_molecule(vectors):
     for atom in surrounding_atoms:
         j = 0
         while j < surrounding_atoms[atom]["number"]:
-            if vectors[i]["type"] == "bond":
+            if vectors[i]["type"] == "bp":
                 ax.text(vectors[i]["vector"][0], vectors[i]["vector"][1], vectors[i]["vector"][2]+0.1, atom)
                 j += 1
             i += 1
 
 
 
-def draw_dipole_moment(vectors):
-    molecular_polarity_vector = get_molecular_polarity_vector(vectors)
+def draw_dipole_moment(molecular_dipole):
     central_atom, surrounding_atoms = get_central_atom_and_surrounding_atoms(molecule)
 
     if polarity == "Polar":
@@ -498,13 +357,13 @@ def draw_dipole_moment(vectors):
         bond_dipole_pointing_out = False
         for atom in surrounding_atoms:
             if central_atom == "C" and main_group_elements[central_atom]["electronegativity"] < surrounding_atoms[atom]["electronegativity"]:
-                ax.quiver(-1.5, 0, molecular_polarity_vector[2], molecular_polarity_vector[0], molecular_polarity_vector[1], molecular_polarity_vector[2])
-                ax.text(-2, 0, 0.1, "net dipole", zdir=molecular_polarity_vector)
+                ax.quiver(-1.5, 0, molecular_dipole[2], molecular_dipole[0], molecular_dipole[1], molecular_dipole[2])
+                ax.text(-2, 0, 0.1, "net dipole", zdir=molecular_dipole)
                 bond_dipole_pointing_out = True
                 break
         if bond_dipole_pointing_out == False:
-            ax.quiver(-1.5, 0, molecular_polarity_vector[2], -molecular_polarity_vector[0], -molecular_polarity_vector[1], -molecular_polarity_vector[2])
-            ax.text(-2, 0, 0.1, "net dipole", zdir=molecular_polarity_vector)
+            ax.quiver(-1.5, 0, molecular_dipole[2], -molecular_dipole[0], -molecular_dipole[1], -molecular_dipole[2])
+            ax.text(-2, 0, 0.1, "net dipole", zdir=molecular_dipole)
 
 
 
@@ -512,8 +371,9 @@ def draw_dipole_moment(vectors):
 def get_bond_angles(vectors):
     for i in range(len(vectors)):
         for j in range(i+1, len(vectors)):
-            angle = np.degrees(np.arccos(np.dot(vectors[i]["vector"], vectors[j]["vector"])))
-            print(angle)
+            if vectors[i]["type"] == "bp" and vectors[j]["type"] == "bp":
+                angle = np.degrees(np.arccos(np.dot(vectors[i]["vector"], vectors[j]["vector"])))
+                print(angle)
     
 
 
@@ -530,13 +390,17 @@ molecule = input("Molecule: ")
 
 vectors = minimize_repulsion(molecule)
 
+
 get_bond_angles(vectors)
 
-molecular_polarity_vector = get_molecular_polarity_vector(vectors)
+dipoles = get_bond_dipoles(vectors)
+
+
+molecular_dipole = get_molecular_dipole(dipoles)
 
 threshold = 1e-3
 
-if np.linalg.norm(molecular_polarity_vector) < threshold:
+if np.linalg.norm(molecular_dipole) < threshold:
     polarity = "Nonpolar"
 else: 
     polarity = "Polar"
@@ -553,7 +417,7 @@ ax = fig.add_subplot(111, projection = '3d')
 
 
 draw_molecule(vectors)
-draw_dipole_moment(vectors)
+draw_dipole_moment(molecular_dipole)
 
 
 
